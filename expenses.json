@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "amount": 73000,
+    "date": "2024-10-02",
+    "category": "home",
+    "note": "Gold loan"
+  },
+  {
+    "id": 2,
+    "amount": 1044,
+    "date": "2024-10-03",
+    "category": "hospital",
+    "note": "Sonu"
+  },
+  {
+    "id": 3,
+    "amount": 290,
+    "date": "2024-10-03",
+    "category": "medical",
+    "note": "Sonu"
+  },
+  {
+    "id": 4,
+    "amount": 249,
+    "date": "2024-10-04",
+    "category": "recharge",
+    "note": "Aryan"
+  },
+  {
+    "id": 5,
+    "amount": 32,
+    "date": "2024-10-03",
+    "category": "food",
+    "note": "samosa"
+  },
+  {
+    "id": 6,
+    "amount": 75,
+    "date": "2024-10-03",
+    "category": "food",
+    "note": "milk product"
+  }
+]
