@@ -1,5 +1,5 @@
 [build]
-  command = "go build -o main ."
+  command = "go mod init && go build -o main ."
   functions = "functions"
   publish = "public"
 
