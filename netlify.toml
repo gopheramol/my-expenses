@@ -1,12 +1,6 @@
 [build]
-  command = "test -f go.mod || go mod init && go build -o main ."
-  functions = "functions"
-  publish = "public"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+  publish = "."
+  command = "echo 'No build command required for static HTML'"
 
 [[redirects]]
   from = "/*"

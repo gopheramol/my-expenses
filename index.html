@@ -43,7 +43,6 @@
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
         }
-
         .card.full-width {
             grid-column: 1 / -1;
         }
@@ -73,10 +72,9 @@
         }
 
         .expense-list {
-            max-height: 300px; /* Reverted to original height */
+            max-height: 300px;
             overflow-y: auto;
         }
-
 
         .expense-item {
             display: flex;
@@ -127,7 +125,7 @@
             color: var(--danger-color);
         }
 
-        #expenseForm, #editExpenseForm {
+        #expenseForm {
             display: grid;
             gap: 16px;
         }
@@ -197,30 +195,34 @@
             gap: 8px;
         }
 
-        .action-button {
-            background-color: transparent;
-            border: none;
+        .edit-btn, .delete-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
             cursor: pointer;
-            font-size: 14px;
-            color: var(--text-light);
-            transition: color 0.3s ease;
+            transition: background-color 0.3s ease;
         }
 
-        .action-button:hover {
-            color: var(--primary-color);
+        .edit-btn {
+            background-color: var(--warning-color);
+            color: white;
         }
 
-        .edit-button::before {
-            content: '✏️';
-            margin-right: 4px;
+        .delete-btn {
+            background-color: var(--danger-color);
+            color: white;
         }
 
-        .delete-button::before {
-            content: '🗑️';
-            margin-right: 4px;
+        .edit-btn:hover {
+            background-color: #E09400;
         }
 
-        #editExpenseModal {
+        .delete-btn:hover {
+            background-color: #E02D3A;
+        }
+
+        .modal {
             display: none;
             position: fixed;
             z-index: 1;
@@ -256,6 +258,12 @@
             cursor: pointer;
         }
 
+        #editExpenseForm {
+            display: grid;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
         @media (max-width: 768px) {
             .dashboard {
                 grid-template-columns: 1fr;
@@ -279,8 +287,8 @@
                         <div class="progress-label">Shopping</div>
                     </div>
                     <div class="progress-item">
-                        <div class="progress-circle" id="transportProgress" data-progress="0"></div>
-                        <div class="progress-label">Transport</div>
+                        <div class="progress-circle" id="hospitalProgress" data-progress="0"></div>
+                        <div class="progress-label">Hospital</div>
                     </div>
                 </div>
             </div>
@@ -322,12 +330,12 @@
         </div>
     </div>
 
-    <div id="editExpenseModal">
+    <div id="editExpenseModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Edit Expense</h2>
             <form id="editExpenseForm">
-                <input type="hidden" id="editId">
+                <input type="hidden" id="editExpenseId">
                 <input type="number" id="editAmount" placeholder="Amount" step="0.01" required>
                 <input type="date" id="editDate" required>
                 <select id="editCategory" required>
@@ -353,14 +361,11 @@
     </div>
 
     <script>
-        const apiUrl = '/api/expenses';
-        let expenses = [];
+        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
         let chart;
 
-        async function fetchExpenses() {
-            const response = await fetch(apiUrl);
-            expenses = await response.json();
-            renderDashboard();
+        function saveExpenses() {
+            localStorage.setItem('expenses', JSON.stringify(expenses));
         }
 
         function renderDashboard() {
@@ -412,10 +417,6 @@
         function renderExpenseList() {
             const expenseList = document.getElementById('expenseList');
             expenseList.innerHTML = '';
-            
-            // Sort expenses by date, most recent first
-            expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
-
             expenses.forEach(expense => {
                 const expenseItem = document.createElement('div');
                 expenseItem.className = 'expense-item';
@@ -429,24 +430,23 @@
                     </div>
                     <div class="expense-amount">₹${expense.amount.toFixed(2)}</div>
                     <div class="expense-actions">
-                        <button class="action-button edit-button" onclick="openEditModal(${expense.id})">Edit</button>
-                        <button class="action-button delete-button" onclick="deleteExpense(${expense.id})">Delete</button>
+                        <button class="edit-btn" onclick="openEditModal(${expense.id})">Edit</button>
+                        <button class="delete-btn" onclick="deleteExpense(${expense.id})">Delete</button>
                     </div>
                 `;
                 expenseList.appendChild(expenseItem);
             });
         }
 
-
         function renderCategoryProgress() {
             const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-            const categories = ['food', 'shopping', 'transport'];
+            const categories = ['food', 'shopping', 'hospital'];
             
             categories.forEach(category => {
                 const categoryTotal = expenses
                     .filter(expense => expense.category === category)
                     .reduce((sum, expense) => sum + expense.amount, 0);
-                const percentage = (categoryTotal / totalExpenses * 100).toFixed(0);
+                const percentage = totalExpenses > 0 ? (categoryTotal / totalExpenses * 100).toFixed(0) : 0;
                 const progressElement = document.getElementById(`${category}Progress`);
                 progressElement.style.background = `conic-gradient(var(--primary-color) ${percentage * 3.6}deg, var(--secondary-color) 0deg)`;
                 progressElement.setAttribute('data-progress', percentage);
@@ -496,84 +496,85 @@
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
 
-        async function addExpense(event) {
-        event.preventDefault();
-        const amount = parseFloat(document.getElementById('amount').value);
-        const date = document.getElementById('date').value;
-        const category = document.getElementById('category').value;
-        const note = document.getElementById('note').value;
+        function addExpense(event) {
+            event.preventDefault();
+            const amount = parseFloat(document.getElementById('amount').value);
+            const date = document.getElementById('date').value;
+            const category = document.getElementById('category').value;
+            const note = document.getElementById('note').value;
 
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, date, category, note })
-        });
+            const newExpense = {
+                id: Date.now(),
+                amount,
+                date,
+                category,
+                note
+            };
 
-        if (response.ok) {
-            fetchExpenses();
+            expenses.push(newExpense);
+            saveExpenses();
+            renderDashboard();
             event.target.reset();
         }
-    }
 
-    async function deleteExpense(id) {
-        if (confirm('Are you sure you want to delete this expense?')) {
-            const response = await fetch(`/api/expense?id=${id}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                fetchExpenses();
+        function deleteExpense(id) {
+            if (confirm('Are you sure you want to delete this expense?')) {
+                expenses = expenses.filter(expense => expense.id !== id);
+                saveExpenses();
+                renderDashboard();
             }
         }
-    }
 
-    function openEditModal(id) {
-        const expense = expenses.find(e => e.id === id);
-        if (expense) {
-            document.getElementById('editId').value = expense.id;
+        function openEditModal(id) {
+            const expense = expenses.find(e => e.id === id);
+            document.getElementById('editExpenseId').value = expense.id;
             document.getElementById('editAmount').value = expense.amount;
             document.getElementById('editDate').value = expense.date;
             document.getElementById('editCategory').value = expense.category;
             document.getElementById('editNote').value = expense.note;
-            document.getElementById('editExpenseModal').style.display = 'block';
+            
+            const modal = document.getElementById('editExpenseModal');
+            modal.style.display = 'block';
         }
-    }
 
-    async function updateExpense(event) {
-        event.preventDefault();
-        const id = document.getElementById('editId').value;
-        const amount = parseFloat(document.getElementById('editAmount').value);
-        const date = document.getElementById('editDate').value;
-        const category = document.getElementById('editCategory').value;
-        const note = document.getElementById('editNote').value;
+        function updateExpense(event) {
+            event.preventDefault();
+            const id = parseInt(document.getElementById('editExpenseId').value);
+            const amount = parseFloat(document.getElementById('editAmount').value);
+            const date = document.getElementById('editDate').value;
+            const category = document.getElementById('editCategory').value;
+            const note = document.getElementById('editNote').value;
 
-        const response = await fetch(`/api/expense?id=${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, date, category, note })
-        });
-
-        if (response.ok) {
-            fetchExpenses();
-            closeEditModal();
+            const expenseIndex = expenses.findIndex(e => e.id === id);
+            if (expenseIndex !== -1) {
+                expenses[expenseIndex] = { id, amount, date, category, note };
+                saveExpenses();
+                renderDashboard();
+                closeEditModal();
+            }
         }
-    }
 
-    function closeEditModal() {
-        document.getElementById('editExpenseModal').style.display = 'none';
-    }
-
-    // Event listeners
-    document.getElementById('expenseForm').addEventListener('submit', addExpense);
-    document.getElementById('editExpenseForm').addEventListener('submit', updateExpense);
-    document.querySelector('.close').addEventListener('click', closeEditModal);
-    window.addEventListener('click', (event) => {
-        if (event.target === document.getElementById('editExpenseModal')) {
-            closeEditModal();
+        function closeEditModal() {
+            const modal = document.getElementById('editExpenseModal');
+            modal.style.display = 'none';
         }
-    });
 
-    fetchExpenses();
-</script>
+        // Event listeners
+        document.getElementById('expenseForm').addEventListener('submit', addExpense);
+        document.getElementById('editExpenseForm').addEventListener('submit', updateExpense);
+
+        // Close modal when clicking on <span> (x)
+        document.querySelector('.close').onclick = closeEditModal;
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('editExpenseModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        renderDashboard();
+    </script>
 </body>
 </html>
